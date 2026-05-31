@@ -1,0 +1,14 @@
+[project]
+name = "smartinboxai"
+version = "0.1.0"
+description = "Automatisierte Dokumentenverwaltung (DMS) für NAS mit OCR, KI-Analyse und Telegram-Bot."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "watchfiles>=1.0.0",
+    "pypdf>=4.0.0",
+    "pdf2image>=1.17.0",
+    "litellm>=1.50.0",
+    "python-telegram-bot>=21.0",
+    "python-dotenv>=1.0.0",
+]
