@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  smartinbox:
+    build: .
+    container_name: smartinbox
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./inbox:/app/inbox
+      - ./archive:/app/archive
+      - ./pending:/app/pending
+      - ./error:/app/error

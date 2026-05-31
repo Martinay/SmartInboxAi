@@ -36,10 +36,10 @@ COPY pyproject.toml .
 RUN uv sync --no-dev
 
 # Anwendung kopieren
-COPY main.py .
+COPY src/ ./src/
 
 # Standardverzeichnisse erstellen (werden i.d.R. über Volumes gemountet)
 RUN mkdir -p /app/inbox /app/archive /app/pending /app/error
 
 # Anwendung starten
-CMD ["uv", "run", "main.py"]
+CMD ["uv", "run", "src/main.py"]
