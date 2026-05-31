@@ -42,4 +42,4 @@ COPY src/ ./src/
 RUN mkdir -p /app/inbox /app/archive /app/pending /app/error
 
 # Anwendung starten
-CMD ["uv", "run", "src/main.py"]
+CMD ["uv", "run", "python", "-m", "src.main"]
