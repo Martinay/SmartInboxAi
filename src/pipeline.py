@@ -114,17 +114,11 @@ async def process_file(
             # New category → move to pending and ask user.
             move_file(pdf_path, settings.pending_dir, new_filename)
 
-            pending_preview = (
-                settings.pending_dir / f"{Path(new_filename).stem}.jpg"
-            )
-            if preview_path.exists():
-                shutil.move(str(preview_path), str(pending_preview))
-                preview_path = pending_preview
-
             pending_decisions[new_filename] = metadata
             await notifier.send_decision_request(
                 new_filename, metadata, preview_path
             )
+            cleanup_preview(pdf_path)
             logger.info(
                 "User decision requested for: %s (suggested: %s)",
                 new_filename,

@@ -12,7 +12,7 @@ from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.config import Settings
-from src.file_ops import cleanup_preview, move_file
+from src.file_ops import move_file
 from src.models import DocumentMetadata
 
 logger = logging.getLogger("SmartInboxAI")
@@ -231,6 +231,5 @@ def create_callback_handler(
             )
         finally:
             pending_decisions.pop(filename, None)
-            cleanup_preview(settings.pending_dir / filename)
 
     return _secured_callback
