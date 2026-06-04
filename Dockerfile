@@ -41,5 +41,9 @@ COPY src/ ./src/
 # Standardverzeichnisse erstellen (werden i.d.R. über Volumes gemountet)
 RUN mkdir -p /app/inbox /app/archive /app/pending /app/error
 
+# Polling-Modus für watchfiles aktivieren – inotify-Events werden bei
+# Docker-Bind-Mounts (insb. macOS → Linux) nicht weitergereicht.
+ENV WATCHFILES_FORCE_POLLING=true
+
 # Anwendung starten
 CMD ["uv", "run", "python", "-m", "src.main"]

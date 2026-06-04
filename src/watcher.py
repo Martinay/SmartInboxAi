@@ -6,6 +6,7 @@ a processing task for each new or modified PDF.
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from watchfiles import Change, awatch
@@ -36,7 +37,22 @@ async def watch_inbox(
     ):
         d.mkdir(parents=True, exist_ok=True)
 
-    async for changes in awatch(settings.inbox_dir, stop_event=stop_event):
+    # Docker bind-mounts (especially macOS → Linux) don't propagate
+    # inotify events.  Honour the WATCHFILES_FORCE_POLLING env var
+    # (also respected natively by watchfiles) and log the mode.
+    force_polling = os.getenv("WATCHFILES_FORCE_POLLING", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    if force_polling:
+        logger.info("File monitoring mode: polling (WATCHFILES_FORCE_POLLING is set)")
+    else:
+        logger.info("File monitoring mode: native OS notifications")
+
+    async for changes in awatch(
+        settings.inbox_dir, stop_event=stop_event, force_polling=force_polling
+    ):
         for change_type, filepath in changes:
             filepath = Path(filepath)
 
