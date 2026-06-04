@@ -77,7 +77,7 @@ async def analyze_with_llm(
     text: str,
     categories: list[str],
     *,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5.4-nano",
     temperature: float = 0.2,
     max_text_chars: int = 4000,
 ) -> DocumentMetadata:
