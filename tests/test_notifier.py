@@ -109,3 +109,20 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         assert headers["X-Filename"] == "test.jpg"
         # Body should be the JPEG bytes
         assert call_args[1]["content"] == b"\xff\xd8\xff\xe0fake_jpeg_data"
+
+
+def test_encode_header(notifier: NtfyNotifier) -> None:
+    """Verify that pure ASCII strings are not encoded, while Unicode is RFC 2047 base64 encoded."""
+    ascii_str = "Clean ASCII string"
+    assert notifier._encode_header(ascii_str) == ascii_str
+
+    unicode_str = "📄 Neues Dokument"
+    encoded = notifier._encode_header(unicode_str)
+    assert encoded.startswith("=?utf-8?B?")
+    assert encoded.endswith("?=")
+
+    # Decoded value should match original
+    import base64
+    b64_part = encoded[len("=?utf-8?B?"):-len("?=")]
+    assert base64.b64decode(b64_part).decode("utf-8") == unicode_str
+

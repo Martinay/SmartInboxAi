@@ -6,6 +6,7 @@ Decision requests include a JPEG preview as attachment and ``http``
 action buttons that call back into the local FastAPI webhook server.
 """
 
+import base64
 import logging
 from pathlib import Path
 from urllib.parse import urlencode
@@ -30,6 +31,16 @@ class NtfyNotifier:
         self._base_headers: dict[str, str] = {}
         if settings.ntfy_token:
             self._base_headers["Authorization"] = f"Bearer {settings.ntfy_token}"
+
+    @staticmethod
+    def _encode_header(val: str) -> str:
+        """Encode header values to RFC 2047 base64 if they contain non-ASCII characters."""
+        try:
+            val.encode("ascii")
+            return val
+        except UnicodeEncodeError:
+            encoded = base64.b64encode(val.encode("utf-8")).decode("ascii")
+            return f"=?utf-8?B?{encoded}?="
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -97,7 +108,7 @@ class NtfyNotifier:
                     self._ntfy_url,
                     headers={
                         **self._base_headers,
-                        "X-Title": "✅ Automatisch abgelegt",
+                        "X-Title": self._encode_header("✅ Automatisch abgelegt"),
                         "X-Tags": "white_check_mark,file_folder",
                     },
                     content=(
@@ -124,10 +135,10 @@ class NtfyNotifier:
 
         headers = {
             **self._base_headers,
-            "X-Title": "Neues Dokument einordnen",
-            "X-Message": message,
-            "X-Filename": preview_path.name,
-            "X-Actions": actions,
+            "X-Title": self._encode_header("Neues Dokument einordnen"),
+            "X-Message": self._encode_header(message),
+            "X-Filename": self._encode_header(preview_path.name),
+            "X-Actions": self._encode_header(actions),
             "X-Tags": "page_facing_up",
         }
 
@@ -148,8 +159,8 @@ class NtfyNotifier:
                         self._ntfy_url,
                         headers={
                             **self._base_headers,
-                            "X-Title": "Neues Dokument einordnen",
-                            "X-Actions": actions,
+                            "X-Title": self._encode_header("Neues Dokument einordnen"),
+                            "X-Actions": self._encode_header(actions),
                             "X-Tags": "page_facing_up",
                         },
                         content=(
@@ -173,7 +184,7 @@ class NtfyNotifier:
                     self._ntfy_url,
                     headers={
                         **self._base_headers,
-                        "X-Title": "❌ Fehler bei Verarbeitung",
+                        "X-Title": self._encode_header("❌ Fehler bei Verarbeitung"),
                         "X-Priority": "high",
                         "X-Tags": "rotating_light",
                     },
