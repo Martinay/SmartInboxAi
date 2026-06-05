@@ -23,11 +23,16 @@ Falls nicht erkennbar, verwende das heutige Datum.
 - "title": Kurzer, beschreibender Titel (maximal 4 Wörter, keine Sonderzeichen, \
 Leerzeichen durch Unterstriche ersetzen).
 - "suggested_category": Der am besten passende Ordnerpfad aus der Kategorie-Liste. \
-Falls keine passt, schlage einen NEUEN, sinnvollen Pfad vor.
+Falls keine passt, schlage einen NEUEN, sinnvollen Pfad vor. \
+WICHTIG: Wenn ein existierender Ordner gewählt wird, muss der Pfad EXAKT so geschrieben \
+werden, wie er in der Liste steht – gleiche Groß-/Kleinschreibung, gleiche Leerzeichen, \
+keine Unterstriche einfügen oder entfernen.
 - "is_new_category": true, wenn "suggested_category" NICHT in der Liste existiert; \
 false, wenn er existiert.
-- "alternative_1": Ein bestehender Ordnerpfad als erste Alternative (muss aus der Liste stammen).
-- "alternative_2": Ein anderer bestehender Ordnerpfad als zweite Alternative (muss aus der Liste stammen).
+- "alternative_1": Ein bestehender Ordnerpfad als erste Alternative. \
+Muss EXAKT so geschrieben werden, wie er in der Kategorie-Liste steht.
+- "alternative_2": Ein anderer bestehender Ordnerpfad als zweite Alternative. \
+Muss EXAKT so geschrieben werden, wie er in der Kategorie-Liste steht.
 
 Falls weniger als 2 Kategorien existieren, verwende den am besten passenden für beide Alternativen.\
 """
@@ -73,6 +78,39 @@ JSON_SCHEMA: dict = {
 }
 
 
+def _match_category(value: str, categories: list[str]) -> str:
+    """Return the exact category from *categories* that best matches *value*.
+
+    Uses case-insensitive + whitespace/underscore-normalised comparison so
+    that LLM variations like ``TC_Mörsch`` still resolve to the real folder
+    name ``Tc Mörsch``.  Returns *value* unchanged if no match is found
+    (e.g. genuinely new category).
+    """
+    if not categories:
+        return value
+
+    def _normalise(s: str) -> str:
+        return s.lower().replace("_", " ").replace("-", " ").strip()
+
+    norm_value = _normalise(value)
+
+    # 1. Exact match (fast path).
+    if value in categories:
+        return value
+
+    # 2. Normalised match.
+    for cat in categories:
+        if _normalise(cat) == norm_value:
+            logger.debug(
+                "Corrected LLM category %r → %r (normalised match)",
+                value,
+                cat,
+            )
+            return cat
+
+    return value
+
+
 async def analyze_with_llm(
     text: str,
     categories: list[str],
@@ -115,5 +153,13 @@ async def analyze_with_llm(
 
     content = response.choices[0].message.content
     metadata = DocumentMetadata(**json.loads(content))
+
+    # Correct category fields to match real folder names exactly.
+    metadata.suggested_category = _match_category(
+        metadata.suggested_category, categories
+    )
+    metadata.alternative_1 = _match_category(metadata.alternative_1, categories)
+    metadata.alternative_2 = _match_category(metadata.alternative_2, categories)
+
     logger.info("LLM analysis completed: %s", metadata.model_dump())
     return metadata
