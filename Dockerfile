@@ -8,7 +8,7 @@
 FROM python:3.12-slim
 
 LABEL maintainer="SmartInboxAI"
-LABEL description="Automatisierte Dokumentenverwaltung mit OCR, KI und Telegram-Bot"
+LABEL description="Automatisierte Dokumentenverwaltung mit OCR, KI und ntfy-Benachrichtigungen"
 
 # System-Abhängigkeiten installieren:
 #  - tesseract-ocr + Sprachpakete (DE, EN) für OCR
@@ -44,6 +44,9 @@ RUN mkdir -p /app/inbox /app/archive /app/pending /app/error
 # Polling-Modus für watchfiles aktivieren – inotify-Events werden bei
 # Docker-Bind-Mounts (insb. macOS → Linux) nicht weitergereicht.
 ENV WATCHFILES_FORCE_POLLING=true
+
+# FastAPI Webhook-Server Port
+EXPOSE 8000
 
 # Anwendung starten
 CMD ["uv", "run", "python", "-m", "src.main"]

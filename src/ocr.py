@@ -71,7 +71,7 @@ def extract_text(pdf_path: Path, max_pages: int = 3) -> str:
 
 
 def generate_preview(pdf_path: Path) -> Path:
-    """Render page 1 as JPEG (150 DPI, quality 85) for Telegram previews."""
+    """Render page 1 as JPEG (150 DPI, quality 85) for ntfy previews."""
     images = convert_from_path(str(pdf_path), first_page=1, last_page=1, dpi=150)
 
     preview_path = pdf_path.with_suffix(".jpg")

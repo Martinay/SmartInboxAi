@@ -14,14 +14,14 @@ from watchfiles import Change, awatch
 from src.config import Settings
 from src.models import DocumentMetadata
 from src.pipeline import process_file
-from src.telegram_bot import TelegramNotifier
+from src.notifier import NtfyNotifier
 
 logger = logging.getLogger("SmartInboxAI")
 
 
 async def watch_inbox(
     settings: Settings,
-    notifier: TelegramNotifier,
+    notifier: NtfyNotifier,
     pending_decisions: dict[str, DocumentMetadata],
     stop_event: asyncio.Event,
 ) -> None:

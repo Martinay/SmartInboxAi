@@ -1,19 +1,21 @@
 """SmartInboxAI – Entry point.
 
-Loads configuration, wires dependencies, and runs the Telegram bot
-alongside the file watcher in a single asyncio event loop.
+Loads configuration, wires dependencies, and runs the ntfy-backed
+notifier alongside the FastAPI webhook server and file watcher in a
+single asyncio event loop.
 """
 
 import asyncio
 import logging
 import sys
 
-from telegram.ext import Application, CallbackQueryHandler
+import uvicorn
 
 from src.config import load_settings
 from src.models import DocumentMetadata
-from src.telegram_bot import TelegramNotifier, create_callback_handler
+from src.notifier import NtfyNotifier
 from src.watcher import watch_inbox
+from src.webhook import create_webhook_app
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,15 +26,18 @@ logger = logging.getLogger("SmartInboxAI")
 
 
 async def main() -> None:
-    """Start the Telegram bot and file watcher concurrently."""
+    """Start the webhook server and file watcher concurrently."""
     settings = load_settings()
 
     # Validate critical configuration.
-    if not settings.telegram_bot_token:
-        logger.error("TELEGRAM_BOT_TOKEN is not set!")
+    if not settings.ntfy_url:
+        logger.error("NTFY_URL is not set!")
         sys.exit(1)
-    if not settings.telegram_chat_id:
-        logger.error("TELEGRAM_CHAT_ID is not set!")
+    if not settings.secret_token:
+        logger.error("SECRET_TOKEN is not set!")
+        sys.exit(1)
+    if not settings.callback_base_url:
+        logger.error("CALLBACK_BASE_URL is not set!")
         sys.exit(1)
     if not settings.openai_api_key:
         logger.warning("OPENAI_API_KEY is not set – LLM calls will fail.")
@@ -42,44 +47,38 @@ async def main() -> None:
     logger.info("Archive:   %s", settings.archive_dir)
     logger.info("Pending:   %s", settings.pending_dir)
     logger.info("Error:     %s", settings.error_dir)
+    logger.info("ntfy:      %s", settings.ntfy_url)
+    logger.info("Webhook:   :%d", settings.webhook_port)
     logger.info("Blacklist: %s", settings.blacklist)
 
     # Shared mutable state for pending user decisions.
     pending_decisions: dict[str, DocumentMetadata] = {}
 
-    # Build the Telegram application.
-    application = Application.builder().token(settings.telegram_bot_token).build()
+    # Build the notifier and webhook app.
+    notifier = NtfyNotifier(settings)
+    app = create_webhook_app(settings, pending_decisions)
 
-    callback_handler = create_callback_handler(settings, pending_decisions)
-    application.add_handler(
-        CallbackQueryHandler(
-            callback_handler,
-            pattern=r"^(create|alt1|alt2|reject):",
-        )
+    # Configure uvicorn to run inside the existing event loop.
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=settings.webhook_port,
+        log_level="info",
     )
-
-    notifier = TelegramNotifier(
-        bot=application.bot,
-        chat_id=int(settings.telegram_chat_id),
-    )
+    server = uvicorn.Server(config)
 
     stop_event = asyncio.Event()
 
-    async with application:
-        await application.start()
-        await application.updater.start_polling(
-            allowed_updates=["callback_query"],
+    try:
+        await asyncio.gather(
+            server.serve(),
+            watch_inbox(settings, notifier, pending_decisions, stop_event),
         )
-        logger.info("Telegram bot started (polling).")
-
-        try:
-            await watch_inbox(settings, notifier, pending_decisions, stop_event)
-        except KeyboardInterrupt:
-            logger.info("Shutting down SmartInboxAI…")
-        finally:
-            stop_event.set()
-            await application.updater.stop()
-            await application.stop()
+    except KeyboardInterrupt:
+        logger.info("Shutting down SmartInboxAI…")
+    finally:
+        stop_event.set()
+        server.should_exit = True
 
     logger.info("SmartInboxAI stopped.")
 

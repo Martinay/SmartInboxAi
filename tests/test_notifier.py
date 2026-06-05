@@ -1,0 +1,111 @@
+"""Tests for the ntfy notifier module."""
+
+import pytest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch, MagicMock
+
+import httpx
+
+from src.config import Settings
+from src.models import DocumentMetadata
+from src.notifier import NtfyNotifier
+
+
+@pytest.fixture
+def metadata() -> DocumentMetadata:
+    return DocumentMetadata(
+        year="2024", month="01", day="01", title="Test",
+        suggested_category="Finance", is_new_category=True,
+        alternative_1="Alt1", alternative_2="Alt2",
+    )
+
+
+@pytest.fixture
+def notifier(mock_settings) -> NtfyNotifier:
+    return NtfyNotifier(mock_settings)
+
+
+def test_action_url(notifier: NtfyNotifier) -> None:
+    """Ensure action URLs contain token, action and filename."""
+    url = notifier._action_url("create", "test.pdf")
+    assert "token=test_secret" in url
+    assert "action=create" in url
+    assert "file=test.pdf" in url
+    assert url.startswith("http://localhost:8000/action?")
+
+
+def test_build_actions_header(notifier: NtfyNotifier, metadata: DocumentMetadata) -> None:
+    """Ensure the X-Actions header contains all four actions."""
+    header = notifier._build_actions_header("test.pdf", metadata)
+
+    # Four actions separated by "; "
+    actions = header.split("; ")
+    assert len(actions) == 4
+
+    # Check each action type
+    assert "Erstellen" in actions[0]
+    assert "action=create" in actions[0]
+    assert "Alt1" in actions[1]
+    assert "action=alt1" in actions[1]
+    assert "Alt2" in actions[2]
+    assert "action=alt2" in actions[2]
+    assert "Ablehnen" in actions[3]
+    assert "action=reject" in actions[3]
+
+    # All actions should use POST method and clear notification
+    for action in actions:
+        assert "method=POST" in action
+        assert "clear=true" in action
+
+
+def test_sanitize_label() -> None:
+    """Ensure commas and semicolons are stripped from labels."""
+    assert NtfyNotifier._sanitize_label("Hello, World; Test") == "Hello  World  Test"
+
+
+@pytest.mark.asyncio
+async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
+    """Ensure send_auto_filed posts to the ntfy URL."""
+    mock_response = MagicMock(spec=httpx.Response)
+
+    with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        await notifier.send_auto_filed("test.pdf", "Finance/Taxes")
+
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+        assert call_args[0][0] == "http://ntfy.test/test_topic"
+        assert "test.pdf" in call_args[1]["content"]
+        assert "Finance/Taxes" in call_args[1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentMetadata, tmp_path: Path) -> None:
+    """Ensure send_decision_request posts JPEG with action headers."""
+    preview = tmp_path / "test.jpg"
+    preview.write_bytes(b"\xff\xd8\xff\xe0fake_jpeg_data")
+
+    mock_response = MagicMock(spec=httpx.Response)
+
+    with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        await notifier.send_decision_request("test.pdf", metadata, preview)
+
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+        headers = call_args[1]["headers"]
+
+        assert headers["X-Title"] == "Neues Dokument einordnen"
+        assert "X-Actions" in headers
+        assert "X-Message" in headers
+        assert headers["X-Filename"] == "test.jpg"
+        # Body should be the JPEG bytes
+        assert call_args[1]["content"] == b"\xff\xd8\xff\xe0fake_jpeg_data"

@@ -10,8 +10,11 @@ from src.config import load_settings
     os.environ,
     {
         "OPENAI_API_KEY": "test_openai",
-        "TELEGRAM_BOT_TOKEN": "test_bot",
-        "TELEGRAM_CHAT_ID": "54321",
+        "NTFY_URL": "http://ntfy.local/topic",
+        "NTFY_TOKEN": "tk_abc123",
+        "SECRET_TOKEN": "my_secret",
+        "CALLBACK_BASE_URL": "http://192.168.1.100:8000",
+        "WEBHOOK_PORT": "9000",
         "IGNORE_FOLDERS": "foo, bar , baz",
     },
 )
@@ -20,8 +23,11 @@ def test_load_settings() -> None:
     settings = load_settings()
 
     assert settings.openai_api_key == "test_openai"
-    assert settings.telegram_bot_token == "test_bot"
-    assert settings.telegram_chat_id == "54321"
+    assert settings.ntfy_url == "http://ntfy.local/topic"
+    assert settings.ntfy_token == "tk_abc123"
+    assert settings.secret_token == "my_secret"
+    assert settings.callback_base_url == "http://192.168.1.100:8000"
+    assert settings.webhook_port == 9000
     assert settings.user_blacklist == frozenset({"foo", "bar", "baz"})
     assert "foo" in settings.blacklist
     assert ".DS_Store" in settings.blacklist  # From system blacklist

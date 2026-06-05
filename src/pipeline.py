@@ -20,7 +20,7 @@ from src.file_ops import (
 from src.llm import analyze_with_llm
 from src.models import DocumentMetadata
 from src.ocr import extract_text, generate_preview, has_text, run_ocr
-from src.telegram_bot import TelegramNotifier
+from src.notifier import NtfyNotifier
 
 logger = logging.getLogger("SmartInboxAI")
 
@@ -28,7 +28,7 @@ logger = logging.getLogger("SmartInboxAI")
 async def process_file(
     pdf_path: Path,
     settings: Settings,
-    notifier: TelegramNotifier,
+    notifier: NtfyNotifier,
     pending_decisions: dict[str, DocumentMetadata],
 ) -> None:
     """Full processing pipeline for a single PDF file.

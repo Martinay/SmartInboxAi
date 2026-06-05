@@ -1,7 +1,7 @@
 """Shared pytest fixtures."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -21,8 +21,10 @@ def mock_settings(tmp_path: Path) -> Settings:
 
     return Settings(
         openai_api_key="test_key",
-        telegram_bot_token="test_token",
-        telegram_chat_id="12345",
+        ntfy_url="http://ntfy.test/test_topic",
+        ntfy_token="",
+        secret_token="test_secret",
+        callback_base_url="http://localhost:8000",
         inbox_dir=inbox,
         archive_dir=archive,
         pending_dir=pending,
@@ -31,12 +33,3 @@ def mock_settings(tmp_path: Path) -> Settings:
         file_stable_seconds=0,  # Fast tests
         file_stable_checks=1,
     )
-
-
-@pytest.fixture
-def mock_telegram_bot() -> MagicMock:
-    """Mock Telegram bot instance with async methods."""
-    bot = MagicMock()
-    bot.send_message = AsyncMock()
-    bot.send_photo = AsyncMock()
-    return bot

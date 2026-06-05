@@ -23,8 +23,13 @@ class Settings:
 
     # Secrets / tokens
     openai_api_key: str = ""
-    telegram_bot_token: str = ""
-    telegram_chat_id: str = ""
+    ntfy_url: str = ""
+    ntfy_token: str = ""
+    secret_token: str = ""
+    callback_base_url: str = ""
+
+    # Webhook server
+    webhook_port: int = 8000
 
     # Directories
     inbox_dir: Path = Path("/app/inbox")
@@ -63,7 +68,10 @@ def load_settings() -> Settings:
 
     return Settings(
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
-        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
+        ntfy_url=os.getenv("NTFY_URL", ""),
+        ntfy_token=os.getenv("NTFY_TOKEN", ""),
+        secret_token=os.getenv("SECRET_TOKEN", ""),
+        callback_base_url=os.getenv("CALLBACK_BASE_URL", ""),
+        webhook_port=int(os.getenv("WEBHOOK_PORT", "8000")),
         user_blacklist=user_blacklist,
     )

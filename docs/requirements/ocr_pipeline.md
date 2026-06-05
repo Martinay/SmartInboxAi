@@ -16,7 +16,7 @@ Each PDF entering `/app/inbox` goes through this pipeline (as an async task):
 
 4. **Text extraction** – `pypdf` reads text from the first 3 pages (configurable via `MAX_TEXT_PAGES`). The text is truncated to 4000 chars before sending to the LLM.
 
-5. **Preview generation** – `pdf2image.convert_from_path` renders page 1 as JPEG (150 DPI, quality 85). Used for Telegram decision messages.
+5. **Preview generation** – `pdf2image.convert_from_path` renders page 1 as JPEG (150 DPI, quality 85). Attached to ntfy push notifications for decision requests.
 
 6. **Category scan** – `os.walk(/app/archive)` builds a fresh list of all subfolder paths (relative), excluding blacklisted names. This runs before every LLM call to pick up any changes.
 
@@ -26,10 +26,10 @@ Each PDF entering `/app/inbox` goes through this pipeline (as an async task):
 
 9. **Route** – Based on `is_new_category`:
    - `false` → move directly to `/app/archive/{suggested_category}/`, send ✅ text notification
-   - `true` → move to `/app/pending/`, send photo + inline keyboard to Telegram
+   - `true` → move to `/app/pending/`, send photo + action buttons via ntfy push notification
 
 ## Error Handling
 Any exception during processing:
 - Moves the file to `/app/error/`
-- Sends a Telegram error notification with the exception message
+- Sends an ntfy error notification with the exception message (priority: high)
 - Never crashes the main loop
