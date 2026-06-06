@@ -86,10 +86,10 @@ async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
 
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
-        assert call_args[0][0] == "http://ntfy.test"
+        assert call_args[0][0] == "http://ntfy.test/test_topic"
 
         payload = call_args[1]["json"]
-        assert payload["topic"] == "test_topic"
+        assert "topic" not in payload
         assert payload["title"] == "✅ Automatisch abgelegt"
         assert "test.pdf" in payload["message"]
         assert "Finance/Taxes" in payload["message"]
@@ -116,7 +116,7 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         call_args = mock_client.post.call_args
 
         payload = call_args[1]["json"]
-        assert payload["topic"] == "test_topic"
+        assert "topic" not in payload
         assert payload["title"] == "Neues Dokument einordnen"
         assert "test.pdf" in payload["message"]
         assert payload["attach"] == "http://localhost:8000/preview/test.jpg"
@@ -146,7 +146,7 @@ async def test_send_error(notifier: NtfyNotifier) -> None:
         call_args = mock_client.post.call_args
 
         payload = call_args[1]["json"]
-        assert payload["topic"] == "test_topic"
+        assert "topic" not in payload
         assert payload["priority"] == 4
         assert "test.pdf" in payload["message"]
         assert "Something went wrong" in payload["message"]

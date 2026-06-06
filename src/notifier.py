@@ -108,7 +108,6 @@ class NtfyNotifier:
     async def send_auto_filed(self, filename: str, category: str) -> None:
         """Confirm that a file was automatically filed into an existing category."""
         payload = {
-            "topic": self._topic,
             "title": "✅ Automatisch abgelegt",
             "message": (
                 f"Datei {filename} erfolgreich nach "
@@ -119,7 +118,7 @@ class NtfyNotifier:
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    self._ntfy_base_url,
+                    self._ntfy_url,
                     headers=self._base_headers,
                     json=payload,
                 )
@@ -145,7 +144,6 @@ class NtfyNotifier:
         preview_url = f"{self._callback_base_url}/preview/{preview_path.name}"
 
         payload = {
-            "topic": self._topic,
             "title": "Neues Dokument einordnen",
             "message": message,
             "tags": ["page_facing_up"],
@@ -156,7 +154,7 @@ class NtfyNotifier:
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    self._ntfy_base_url,
+                    self._ntfy_url,
                     headers=self._base_headers,
                     json=payload,
                 )
@@ -166,7 +164,6 @@ class NtfyNotifier:
             # Fallback: text-only notification without image.
             try:
                 fallback_payload = {
-                    "topic": self._topic,
                     "title": "Neues Dokument einordnen",
                     "message": (
                         message
@@ -177,7 +174,7 @@ class NtfyNotifier:
                 }
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
-                        self._ntfy_base_url,
+                        self._ntfy_url,
                         headers=self._base_headers,
                         json=fallback_payload,
                     )
@@ -188,7 +185,6 @@ class NtfyNotifier:
     async def send_error(self, filename: str, error_msg: str) -> None:
         """Notify the user about a processing error."""
         payload = {
-            "topic": self._topic,
             "title": "❌ Fehler bei Verarbeitung",
             "message": (
                 f"Datei: {filename}\n"
@@ -201,7 +197,7 @@ class NtfyNotifier:
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    self._ntfy_base_url,
+                    self._ntfy_url,
                     headers=self._base_headers,
                     json=payload,
                 )
