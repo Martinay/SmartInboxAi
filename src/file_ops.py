@@ -83,11 +83,6 @@ def build_new_filename(metadata: DocumentMetadata) -> str:
 def move_file(src: Path, dest_dir: Path, filename: str) -> Path:
     """Move *src* into *dest_dir* / *filename*, handling name collisions."""
     dest_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        dest_dir.chmod(0o777)
-    except Exception as e:
-        logger.warning("Failed to chmod directory %s: %s", dest_dir, e)
-
     dest = dest_dir / filename
 
     counter = 1
@@ -97,11 +92,6 @@ def move_file(src: Path, dest_dir: Path, filename: str) -> Path:
         counter += 1
 
     shutil.move(str(src), str(dest))
-    try:
-        dest.chmod(0o666)
-    except Exception as e:
-        logger.warning("Failed to chmod file %s: %s", dest, e)
-
     logger.info("File moved: %s → %s", src.name, dest)
     return dest
 

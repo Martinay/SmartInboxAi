@@ -41,19 +41,12 @@ COPY src/ ./src/
 # Standardverzeichnisse erstellen (werden i.d.R. über Volumes gemountet)
 RUN mkdir -p /app/inbox /app/archive /app/pending /app/error
 
-# Benutzer erstellen und Berechtigungen setzen
-RUN useradd -m -s /bin/bash smartinbox_user && \
-    chown -R smartinbox_user:smartinbox_user /app
-
 # Polling-Modus für watchfiles aktivieren – inotify-Events werden bei
 # Docker-Bind-Mounts (insb. macOS → Linux) nicht weitergereicht.
 ENV WATCHFILES_FORCE_POLLING=true
 
 # FastAPI Webhook-Server Port
 EXPOSE 8000
-
-# Container als Non-Root-User ausführen
-USER smartinbox_user
 
 # Anwendung starten
 CMD ["uv", "run", "python", "-m", "src.main"]
