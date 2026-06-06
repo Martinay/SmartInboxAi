@@ -75,13 +75,13 @@ async def test_run_ocr_failure(mock_exec) -> None:
 
 @patch("src.ocr.convert_from_path")
 def test_generate_preview(mock_convert) -> None:
-    """Ensure generate_preview calls pdf2image and saves jpeg."""
+    """Ensure generate_preview calls pdf2image and returns bytes."""
     mock_image = MagicMock()
     mock_convert.return_value = [mock_image]
 
     pdf_path = Path("test.pdf")
-    preview_path = generate_preview(pdf_path)
+    preview_bytes = generate_preview(pdf_path)
 
-    assert preview_path.name == "test.jpg"
+    assert isinstance(preview_bytes, bytes)
     mock_convert.assert_called_once_with(str(pdf_path), first_page=1, last_page=1, dpi=150)
-    mock_image.save.assert_called_once_with(str(preview_path), "JPEG", quality=85)
+    mock_image.save.assert_called_once()

@@ -122,7 +122,7 @@ class NtfyNotifier:
         self,
         filename: str,
         metadata: DocumentMetadata,
-        preview_path: Path,
+        preview_bytes: bytes,
     ) -> None:
         """Send a preview image with action buttons for user decision."""
         actions_header = self._build_actions_header(filename, metadata)
@@ -133,16 +133,15 @@ class NtfyNotifier:
         )
 
         try:
-            image_bytes = preview_path.read_bytes() if preview_path.exists() else b""
-            if not image_bytes:
-                raise FileNotFoundError(f"Preview not found: {preview_path}")
+            if not preview_bytes:
+                raise ValueError("Preview bytes are empty")
 
             headers = {
                 **self._base_headers,
                 "X-Title": self._encode_header("Neues Dokument einordnen"),
                 "X-Tags": "page_facing_up",
                 "X-Message": self._encode_header(message.replace("\n", "\\n")),
-                "X-Filename": self._encode_header(preview_path.name),
+                "X-Filename": self._encode_header(filename.replace(".pdf", ".jpg")),
                 "X-Actions": self._encode_header(actions_header),
             }
 
@@ -150,7 +149,7 @@ class NtfyNotifier:
                 resp = await client.post(
                     self._ntfy_url,
                     headers=headers,
-                    content=image_bytes,
+                    content=preview_bytes,
                 )
                 resp.raise_for_status()
         except Exception as exc:

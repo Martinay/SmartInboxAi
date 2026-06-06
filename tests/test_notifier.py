@@ -98,8 +98,7 @@ async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
 @pytest.mark.asyncio
 async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentMetadata, tmp_path: Path) -> None:
     """Ensure send_decision_request posts with attach and actions headers."""
-    preview = tmp_path / "test.jpg"
-    preview.write_bytes(b"\xff\xd8\xff\xe0fake_jpeg_data")
+    preview_bytes = b"\xff\xd8\xff\xe0fake_jpeg_data"
 
     mock_response = MagicMock(spec=httpx.Response)
 
@@ -109,7 +108,7 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        await notifier.send_decision_request("test.pdf", metadata, preview)
+        await notifier.send_decision_request("test.pdf", metadata, preview_bytes)
 
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args

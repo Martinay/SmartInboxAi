@@ -12,7 +12,6 @@ from pathlib import Path
 from src.config import Settings
 from src.file_ops import (
     build_new_filename,
-    cleanup_preview,
     move_file,
     scan_categories,
     wait_for_stable_file,
@@ -52,6 +51,9 @@ async def process_file(
             )
             return
 
+        # Move to pending directory immediately
+        pdf_path = move_file(pdf_path, settings.pending_dir, pdf_path.name)
+
         # 2. Check for text and OCR if needed
         if not has_text(pdf_path, max_pages=settings.max_text_pages):
             logger.info("No text found in %s, starting OCR…", original_name)
@@ -66,8 +68,8 @@ async def process_file(
                 f"No text extractable from {original_name} (even after OCR)."
             )
 
-        # 4. Generate preview
-        preview_path = generate_preview(pdf_path)
+        # 4. Generate preview in memory
+        preview_bytes = generate_preview(pdf_path)
 
         # 5. Scan current categories
         categories = scan_categories(settings.archive_dir, settings.blacklist)
@@ -91,18 +93,11 @@ async def process_file(
             pdf_path = new_path
             logger.info("File renamed: %s → %s", original_name, new_filename)
 
-            # Rename preview as well.
-            new_preview = pdf_path.with_suffix(".jpg")
-            if preview_path.exists() and preview_path != new_preview:
-                shutil.move(str(preview_path), str(new_preview))
-                preview_path = new_preview
-
         # 8. Route: auto-file or ask user
         if not metadata.is_new_category:
             # Existing category → move directly.
             target_dir = settings.archive_dir / metadata.suggested_category
             move_file(pdf_path, target_dir, new_filename)
-            cleanup_preview(pdf_path)
             await notifier.send_auto_filed(
                 new_filename, metadata.suggested_category
             )
@@ -112,14 +107,11 @@ async def process_file(
                 metadata.suggested_category,
             )
         else:
-            # New category → move to pending and ask user.
-            move_file(pdf_path, settings.pending_dir, new_filename)
-
+            # New category → already in pending, just ask user.
             pending_decisions[new_filename] = metadata
             await notifier.send_decision_request(
-                new_filename, metadata, preview_path
+                new_filename, metadata, preview_bytes
             )
-            cleanup_preview(pdf_path)
             logger.info(
                 "User decision requested for: %s (suggested: %s)",
                 new_filename,
@@ -129,11 +121,12 @@ async def process_file(
     except Exception as exc:
         logger.error("Error processing %s: %s", original_name, exc)
 
-        # Move to error directory.
+        # Move to error directory and create log.
         try:
             if pdf_path.exists():
-                move_file(pdf_path, settings.error_dir, pdf_path.name)
-                cleanup_preview(pdf_path)
+                error_file_path = move_file(pdf_path, settings.error_dir, pdf_path.name)
+                log_path = error_file_path.with_suffix(".log")
+                log_path.write_text(f"Error processing {original_name}:\n{exc}", encoding="utf-8")
         except Exception as move_exc:
             logger.error("Could not move file to /error: %s", move_exc)
 

@@ -5,6 +5,7 @@ Handles text detection, OCR via ``ocrmypdf``, text extraction with
 """
 
 import asyncio
+import io
 import logging
 import shutil
 from pathlib import Path
@@ -70,11 +71,11 @@ def extract_text(pdf_path: Path, max_pages: int = 3) -> str:
     return "\n\n".join(text_parts)
 
 
-def generate_preview(pdf_path: Path) -> Path:
-    """Render page 1 as JPEG (150 DPI, quality 85) for ntfy previews."""
+def generate_preview(pdf_path: Path) -> bytes:
+    """Render page 1 as JPEG (150 DPI, quality 85) for ntfy previews in memory."""
     images = convert_from_path(str(pdf_path), first_page=1, last_page=1, dpi=150)
 
-    preview_path = pdf_path.with_suffix(".jpg")
-    images[0].save(str(preview_path), "JPEG", quality=85)
-    logger.info("Preview created: %s", preview_path.name)
-    return preview_path
+    buf = io.BytesIO()
+    images[0].save(buf, format="JPEG", quality=85)
+    logger.info("In-memory preview created for: %s", pdf_path.name)
+    return buf.getvalue()

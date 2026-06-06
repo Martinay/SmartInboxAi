@@ -122,8 +122,3 @@ def move_file(src: Path, dest_dir: Path, filename: str) -> Path:
     return dest
 
 
-def cleanup_preview(pdf_path: Path) -> None:
-    """Remove the ``.jpg`` preview associated with *pdf_path*."""
-    preview = pdf_path.with_suffix(".jpg")
-    if preview.exists():
-        preview.unlink()

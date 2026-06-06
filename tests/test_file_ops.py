@@ -7,7 +7,6 @@ from pathlib import Path
 from src.config import Settings
 from src.file_ops import (
     build_new_filename,
-    cleanup_preview,
     move_file,
     scan_categories,
     wait_for_stable_file,
@@ -99,13 +98,3 @@ def test_move_file(tmp_path: Path) -> None:
     assert dest2.read_text() == "new content"
 
 
-def test_cleanup_preview(tmp_path: Path) -> None:
-    """Ensure cleanup_preview deletes the .jpg file if it exists."""
-    pdf_path = tmp_path / "doc.pdf"
-    jpg_path = tmp_path / "doc.jpg"
-    
-    jpg_path.write_text("image data")
-    assert jpg_path.exists()
-    
-    cleanup_preview(pdf_path)
-    assert not jpg_path.exists()
