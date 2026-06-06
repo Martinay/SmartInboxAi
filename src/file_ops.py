@@ -82,7 +82,25 @@ def build_new_filename(metadata: DocumentMetadata) -> str:
 
 def move_file(src: Path, dest_dir: Path, filename: str) -> Path:
     """Move *src* into *dest_dir* / *filename*, handling name collisions."""
+    try:
+        orig_stat = src.stat()
+    except OSError:
+        orig_stat = None
+
+    paths_to_chmod = []
+    curr = dest_dir
+    while not curr.exists() and curr != curr.parent:
+        paths_to_chmod.append(curr)
+        curr = curr.parent
+
     dest_dir.mkdir(parents=True, exist_ok=True)
+
+    for p in paths_to_chmod:
+        try:
+            p.chmod(0o777)
+        except OSError:
+            pass
+
     dest = dest_dir / filename
 
     counter = 1
@@ -92,6 +110,14 @@ def move_file(src: Path, dest_dir: Path, filename: str) -> Path:
         counter += 1
 
     shutil.move(str(src), str(dest))
+
+    if orig_stat is not None:
+        try:
+            os.chmod(dest, orig_stat.st_mode)
+            os.chown(dest, orig_stat.st_uid, orig_stat.st_gid)
+        except OSError as e:
+            logger.warning("Failed to restore permissions/owner for %s: %s", dest, e)
+
     logger.info("File moved: %s → %s", src.name, dest)
     return dest
 
