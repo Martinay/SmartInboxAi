@@ -34,28 +34,29 @@ def test_action_url(notifier: NtfyNotifier) -> None:
     assert url.startswith("http://localhost:8000/action?")
 
 
-def test_build_actions_header(notifier: NtfyNotifier, metadata: DocumentMetadata) -> None:
-    """Ensure the X-Actions header contains all four actions."""
-    header = notifier._build_actions_header("test.pdf", metadata)
+def test_build_actions(notifier: NtfyNotifier, metadata: DocumentMetadata) -> None:
+    """Ensure the actions list contains all four actions as JSON dicts."""
+    actions = notifier._build_actions("test.pdf", metadata)
 
-    # Four actions separated by "; "
-    actions = header.split("; ")
     assert len(actions) == 4
 
-    # Check each action type
-    assert "Erstellen" in actions[0]
-    assert "action=create" in actions[0]
-    assert "Alt1" in actions[1]
-    assert "action=alt1" in actions[1]
-    assert "Alt2" in actions[2]
-    assert "action=alt2" in actions[2]
-    assert "Ablehnen" in actions[3]
-    assert "action=reject" in actions[3]
-
-    # All actions should use POST method and clear notification
+    # Check each action has the correct structure
     for action in actions:
-        assert "method=POST" in action
-        assert "clear=true" in action
+        assert action["action"] == "http"
+        assert action["method"] == "POST"
+        assert action["clear"] is True
+        assert "url" in action
+        assert "label" in action
+
+    # Check labels and action params
+    assert "Erstellen" in actions[0]["label"]
+    assert "action=create" in actions[0]["url"]
+    assert "Alt1" in actions[1]["label"]
+    assert "action=alt1" in actions[1]["url"]
+    assert "Alt2" in actions[2]["label"]
+    assert "action=alt2" in actions[2]["url"]
+    assert "Ablehnen" in actions[3]["label"]
+    assert "action=reject" in actions[3]["url"]
 
 
 def test_sanitize_label() -> None:
@@ -63,9 +64,16 @@ def test_sanitize_label() -> None:
     assert NtfyNotifier._sanitize_label("Hello, World; Test") == "Hello  World  Test"
 
 
+def test_topic_extraction(mock_settings) -> None:
+    """Ensure topic is correctly extracted from ntfy URL."""
+    notifier = NtfyNotifier(mock_settings)
+    assert notifier._topic == "test_topic"
+    assert notifier._ntfy_base_url == "http://ntfy.test"
+
+
 @pytest.mark.asyncio
 async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
-    """Ensure send_auto_filed posts to the ntfy URL."""
+    """Ensure send_auto_filed posts JSON to the ntfy base URL."""
     mock_response = MagicMock(spec=httpx.Response)
 
     with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
@@ -78,14 +86,19 @@ async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
 
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
-        assert call_args[0][0] == "http://ntfy.test/test_topic"
-        assert "test.pdf" in call_args[1]["content"]
-        assert "Finance/Taxes" in call_args[1]["content"]
+        assert call_args[0][0] == "http://ntfy.test"
+
+        payload = call_args[1]["json"]
+        assert payload["topic"] == "test_topic"
+        assert payload["title"] == "✅ Automatisch abgelegt"
+        assert "test.pdf" in payload["message"]
+        assert "Finance/Taxes" in payload["message"]
+        assert payload["tags"] == ["white_check_mark", "file_folder"]
 
 
 @pytest.mark.asyncio
 async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentMetadata, tmp_path: Path) -> None:
-    """Ensure send_decision_request posts JPEG with action headers."""
+    """Ensure send_decision_request posts JSON with attach URL and actions."""
     preview = tmp_path / "test.jpg"
     preview.write_bytes(b"\xff\xd8\xff\xe0fake_jpeg_data")
 
@@ -101,28 +114,39 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
 
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
-        headers = call_args[1]["headers"]
 
-        assert headers["X-Title"] == "Neues Dokument einordnen"
-        assert "X-Actions" in headers
-        assert "X-Message" in headers
-        assert headers["X-Filename"] == "test.jpg"
-        # Body should be the JPEG bytes
-        assert call_args[1]["content"] == b"\xff\xd8\xff\xe0fake_jpeg_data"
+        payload = call_args[1]["json"]
+        assert payload["topic"] == "test_topic"
+        assert payload["title"] == "Neues Dokument einordnen"
+        assert "test.pdf" in payload["message"]
+        assert payload["attach"] == "http://localhost:8000/preview/test.jpg"
+
+        # Verify actions are a JSON list
+        actions = payload["actions"]
+        assert len(actions) == 4
+        assert actions[0]["action"] == "http"
+        assert actions[0]["method"] == "POST"
+        assert actions[0]["clear"] is True
 
 
-def test_encode_header(notifier: NtfyNotifier) -> None:
-    """Verify that pure ASCII strings are not encoded, while Unicode is RFC 2047 base64 encoded."""
-    ascii_str = "Clean ASCII string"
-    assert notifier._encode_header(ascii_str) == ascii_str
+@pytest.mark.asyncio
+async def test_send_error(notifier: NtfyNotifier) -> None:
+    """Ensure send_error posts JSON with high priority."""
+    mock_response = MagicMock(spec=httpx.Response)
 
-    unicode_str = "📄 Neues Dokument"
-    encoded = notifier._encode_header(unicode_str)
-    assert encoded.startswith("=?utf-8?B?")
-    assert encoded.endswith("?=")
+    with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    # Decoded value should match original
-    import base64
-    b64_part = encoded[len("=?utf-8?B?"):-len("?=")]
-    assert base64.b64decode(b64_part).decode("utf-8") == unicode_str
+        await notifier.send_error("test.pdf", "Something went wrong")
 
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+
+        payload = call_args[1]["json"]
+        assert payload["topic"] == "test_topic"
+        assert payload["priority"] == 4
+        assert "test.pdf" in payload["message"]
+        assert "Something went wrong" in payload["message"]

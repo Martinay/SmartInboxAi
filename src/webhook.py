@@ -3,12 +3,15 @@
 Provides a ``POST /action`` endpoint that is triggered when the user
 taps an action button in the ntfy push notification.  The token query
 parameter protects against unauthorised calls.
+
+Also serves preview images via ``GET /preview/{filename}`` so the ntfy
+server can attach them to JSON-published notifications.
 """
 
 import logging
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from src.config import Settings
 from src.file_ops import move_file
@@ -42,6 +45,18 @@ def create_webhook_app(
     async def health() -> dict:
         """Simple health / readiness probe."""
         return {"status": "ok", "pending": len(pending_decisions)}
+
+    # ------------------------------------------------------------------
+    # Preview image serving (for ntfy attach URLs)
+    # ------------------------------------------------------------------
+
+    @app.get("/preview/{filename}")
+    async def serve_preview(filename: str) -> FileResponse:
+        """Serve a JPEG preview image so ntfy can attach it."""
+        preview_file = settings.inbox_dir / filename
+        if not preview_file.exists():
+            raise HTTPException(status_code=404, detail="Preview not found.")
+        return FileResponse(preview_file, media_type="image/jpeg")
 
     # ------------------------------------------------------------------
     # Action callback
