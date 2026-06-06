@@ -57,6 +57,19 @@ class Settings:
         return self.system_blacklist | self.user_blacklist
 
 
+def _read_secret(env_var: str) -> str:
+    """Read a secret from an env var or its _FILE counterpart."""
+    value = os.getenv(env_var, "")
+    if value:
+        return value
+    file_path = os.getenv(f"{env_var}_FILE")
+    if file_path:
+        try:
+            return Path(file_path).read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
+    return ""
+
 def load_settings() -> Settings:
     """Read ``.env`` and construct a ``Settings`` instance."""
     load_dotenv()
@@ -67,10 +80,10 @@ def load_settings() -> Settings:
     )
 
     return Settings(
-        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        openai_api_key=_read_secret("OPENAI_API_KEY"),
         ntfy_url=os.getenv("NTFY_URL", ""),
-        ntfy_token=os.getenv("NTFY_TOKEN", ""),
-        secret_token=os.getenv("SECRET_TOKEN", ""),
+        ntfy_token=_read_secret("NTFY_TOKEN"),
+        secret_token=_read_secret("SECRET_TOKEN"),
         callback_base_url=os.getenv("CALLBACK_BASE_URL", ""),
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8000")),
         user_blacklist=user_blacklist,
