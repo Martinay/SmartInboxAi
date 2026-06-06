@@ -118,11 +118,12 @@ class NtfyNotifier:
         }
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
+                resp = await client.post(
                     self._ntfy_base_url,
                     headers=self._base_headers,
                     json=payload,
                 )
+                resp.raise_for_status()
         except Exception as exc:
             logger.error("Error sending ntfy notification: %s", exc)
 
@@ -154,11 +155,12 @@ class NtfyNotifier:
 
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
+                resp = await client.post(
                     self._ntfy_base_url,
                     headers=self._base_headers,
                     json=payload,
                 )
+                resp.raise_for_status()
         except Exception as exc:
             logger.error("Error sending ntfy decision request: %s", exc)
             # Fallback: text-only notification without image.
@@ -174,11 +176,12 @@ class NtfyNotifier:
                     "actions": actions,
                 }
                 async with httpx.AsyncClient() as client:
-                    await client.post(
+                    resp = await client.post(
                         self._ntfy_base_url,
                         headers=self._base_headers,
                         json=fallback_payload,
                     )
+                    resp.raise_for_status()
             except Exception as exc2:
                 logger.error("Fallback ntfy notification also failed: %s", exc2)
 
@@ -197,10 +200,11 @@ class NtfyNotifier:
         }
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
+                resp = await client.post(
                     self._ntfy_base_url,
                     headers=self._base_headers,
                     json=payload,
                 )
+                resp.raise_for_status()
         except Exception as exc:
             logger.error("Error sending ntfy error notification: %s", exc)
