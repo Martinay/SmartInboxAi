@@ -84,7 +84,6 @@ class NtfyNotifier:
         actions = [
             (f"📂 Erstellen → {suggested}", self._action_url("create", filename)),
             (f"➡️ {alt1}", self._action_url("alt1", filename)),
-            (f"➡️ {alt2}", self._action_url("alt2", filename)),
             ("❌ Ablehnen", self._action_url("reject", filename)),
         ]
 

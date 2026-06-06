@@ -38,9 +38,9 @@ def test_build_actions_header(notifier: NtfyNotifier, metadata: DocumentMetadata
     """Ensure the actions header contains all four actions in ntfy header format."""
     header = notifier._build_actions_header("test.pdf", metadata)
 
-    # Should contain four actions separated by "; "
+    # Should contain three actions separated by "; "
     actions = header.split("; ")
-    assert len(actions) == 4
+    assert len(actions) == 3
 
     # Check each action starts with "http, " and has method=POST, clear=true
     for action in actions:
@@ -53,10 +53,8 @@ def test_build_actions_header(notifier: NtfyNotifier, metadata: DocumentMetadata
     assert "action=create" in actions[0]
     assert "Alt1" in actions[1]
     assert "action=alt1" in actions[1]
-    assert "Alt2" in actions[2]
-    assert "action=alt2" in actions[2]
-    assert "Ablehnen" in actions[3]
-    assert "action=reject" in actions[3]
+    assert "Ablehnen" in actions[2]
+    assert "action=reject" in actions[2]
 
 
 def test_sanitize_label() -> None:
@@ -129,7 +127,7 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         assert "📄 Neuer Ordner vorgeschlagen" in decoded_message
         assert "X-Actions" in headers
 
-        # Verify actions header contains all four actions
+        # Verify actions header contains three actions
         # First we need to decode the RFC 2047 string
         import base64
         encoded_actions = headers["X-Actions"]
@@ -137,7 +135,7 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         decoded_actions = base64.b64decode(b64_part).decode("utf-8")
         
         actions_parts = decoded_actions.split("; ")
-        assert len(actions_parts) == 4
+        assert len(actions_parts) == 3
 
         body = call_args[1]["content"]
         assert body == b"\xff\xd8\xff\xe0fake_jpeg_data"
