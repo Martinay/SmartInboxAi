@@ -34,6 +34,7 @@ async def test_analyze_with_llm(mock_acompletion) -> None:
     metadata = await analyze_with_llm(
         text="Test text", 
         categories=["Misc", "Archive"],
+        api_key="test-key",
         model="gpt-test",
     )
 
