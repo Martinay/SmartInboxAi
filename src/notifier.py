@@ -7,6 +7,7 @@ Decision requests reference a JPEG preview served by the local webhook
 and include ``http`` action buttons that call back into the FastAPI server.
 """
 
+import base64
 import logging
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
@@ -38,6 +39,16 @@ class NtfyNotifier:
         self._base_headers: dict[str, str] = {}
         if settings.ntfy_token:
             self._base_headers["Authorization"] = f"Bearer {settings.ntfy_token}"
+
+    @staticmethod
+    def _encode_header(val: str) -> str:
+        """Encode header values to RFC 2047 base64 if they contain non-ASCII characters."""
+        try:
+            val.encode("ascii")
+            return val
+        except UnicodeEncodeError:
+            encoded = base64.b64encode(val.encode("utf-8")).decode("ascii")
+            return f"=?utf-8?B?{encoded}?="
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -94,7 +105,7 @@ class NtfyNotifier:
         )
         headers = {
             **self._base_headers,
-            "X-Title": "✅ Automatisch abgelegt",
+            "X-Title": self._encode_header("✅ Automatisch abgelegt"),
             "X-Tags": "white_check_mark,file_folder",
         }
         try:
@@ -129,11 +140,11 @@ class NtfyNotifier:
 
             headers = {
                 **self._base_headers,
-                "X-Title": "Neues Dokument einordnen",
+                "X-Title": self._encode_header("Neues Dokument einordnen"),
                 "X-Tags": "page_facing_up",
-                "X-Message": message.replace("\n", "\\n"),
-                "X-Filename": preview_path.name,
-                "X-Actions": actions_header,
+                "X-Message": self._encode_header(message.replace("\n", "\\n")),
+                "X-Filename": self._encode_header(preview_path.name),
+                "X-Actions": self._encode_header(actions_header),
             }
 
             async with httpx.AsyncClient() as client:
@@ -153,10 +164,10 @@ class NtfyNotifier:
                 )
                 fallback_headers = {
                     **self._base_headers,
-                    "X-Title": "Neues Dokument einordnen",
+                    "X-Title": self._encode_header("Neues Dokument einordnen"),
                     "X-Tags": "page_facing_up",
-                    "X-Message": fallback_msg.replace("\n", "\\n"),
-                    "X-Actions": actions_header,
+                    "X-Message": self._encode_header(fallback_msg.replace("\n", "\\n")),
+                    "X-Actions": self._encode_header(actions_header),
                 }
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
@@ -176,7 +187,7 @@ class NtfyNotifier:
         )
         headers = {
             **self._base_headers,
-            "X-Title": "❌ Fehler bei Verarbeitung",
+            "X-Title": self._encode_header("❌ Fehler bei Verarbeitung"),
             "X-Priority": "4",
             "X-Tags": "rotating_light",
         }

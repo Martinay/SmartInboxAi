@@ -89,7 +89,7 @@ async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
         assert call_args[0][0] == "http://ntfy.test/test_topic"
 
         headers = call_args[1]["headers"]
-        assert headers["X-Title"] == "✅ Automatisch abgelegt"
+        assert headers["X-Title"] == notifier._encode_header("✅ Automatisch abgelegt")
         assert headers["X-Tags"] == "white_check_mark,file_folder"
 
         body = call_args[1]["content"].decode("utf-8")
@@ -117,15 +117,26 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         call_args = mock_client.post.call_args
 
         headers = call_args[1]["headers"]
-        assert headers["X-Title"] == "Neues Dokument einordnen"
+        assert headers["X-Title"] == notifier._encode_header("Neues Dokument einordnen")
         assert headers["X-Tags"] == "page_facing_up"
-        assert headers["X-Filename"] == "test.jpg"
+        assert headers["X-Filename"] == notifier._encode_header("test.jpg")
         assert "X-Attach" not in headers
-        assert "📄 Neuer Ordner vorgeschlagen" in headers["X-Message"]
+        
+        import base64
+        encoded_message = headers["X-Message"]
+        b64_part_msg = encoded_message[len("=?utf-8?B?"):-len("?=")]
+        decoded_message = base64.b64decode(b64_part_msg).decode("utf-8")
+        assert "📄 Neuer Ordner vorgeschlagen" in decoded_message
         assert "X-Actions" in headers
 
         # Verify actions header contains all four actions
-        actions_parts = headers["X-Actions"].split("; ")
+        # First we need to decode the RFC 2047 string
+        import base64
+        encoded_actions = headers["X-Actions"]
+        b64_part = encoded_actions[len("=?utf-8?B?"):-len("?=")]
+        decoded_actions = base64.b64decode(b64_part).decode("utf-8")
+        
+        actions_parts = decoded_actions.split("; ")
         assert len(actions_parts) == 4
 
         body = call_args[1]["content"]
@@ -149,10 +160,27 @@ async def test_send_error(notifier: NtfyNotifier) -> None:
         call_args = mock_client.post.call_args
 
         headers = call_args[1]["headers"]
-        assert headers["X-Title"] == "❌ Fehler bei Verarbeitung"
+        assert headers["X-Title"] == notifier._encode_header("❌ Fehler bei Verarbeitung")
         assert headers["X-Priority"] == "4"
         assert headers["X-Tags"] == "rotating_light"
 
         body = call_args[1]["content"].decode("utf-8")
         assert "test.pdf" in body
         assert "Something went wrong" in body
+
+
+def test_encode_header(notifier: NtfyNotifier) -> None:
+    """Verify that pure ASCII strings are not encoded, while Unicode is RFC 2047 base64 encoded."""
+    ascii_str = "Clean ASCII string"
+    assert notifier._encode_header(ascii_str) == ascii_str
+
+    unicode_str = "📄 Neues Dokument"
+    encoded = notifier._encode_header(unicode_str)
+    assert encoded.startswith("=?utf-8?B?")
+    assert encoded.endswith("?=")
+
+    # Decoded value should match original
+    import base64
+    b64_part = encoded[len("=?utf-8?B?"):-len("?=")]
+    assert base64.b64decode(b64_part).decode("utf-8") == unicode_str
+
