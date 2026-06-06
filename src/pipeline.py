@@ -77,6 +77,7 @@ async def process_file(
         metadata = await analyze_with_llm(
             text,
             categories,
+            api_key=settings.openai_api_key,
             model=settings.llm_model,
             temperature=settings.llm_temperature,
             max_text_chars=settings.max_text_chars,

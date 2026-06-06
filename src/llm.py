@@ -115,6 +115,7 @@ async def analyze_with_llm(
     text: str,
     categories: list[str],
     *,
+    api_key: str,
     model: str = "gpt-5.4-nano",
     temperature: float = 0.2,
     max_text_chars: int = 4000,
@@ -136,6 +137,7 @@ async def analyze_with_llm(
 
     response = await litellm.acompletion(
         model=model,
+        api_key=api_key,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_message},
