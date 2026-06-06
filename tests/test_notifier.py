@@ -34,29 +34,29 @@ def test_action_url(notifier: NtfyNotifier) -> None:
     assert url.startswith("http://localhost:8000/action?")
 
 
-def test_build_actions(notifier: NtfyNotifier, metadata: DocumentMetadata) -> None:
-    """Ensure the actions list contains all four actions as JSON dicts."""
-    actions = notifier._build_actions("test.pdf", metadata)
+def test_build_actions_header(notifier: NtfyNotifier, metadata: DocumentMetadata) -> None:
+    """Ensure the actions header contains all four actions in ntfy header format."""
+    header = notifier._build_actions_header("test.pdf", metadata)
 
+    # Should contain four actions separated by "; "
+    actions = header.split("; ")
     assert len(actions) == 4
 
-    # Check each action has the correct structure
+    # Check each action starts with "http, " and has method=POST, clear=true
     for action in actions:
-        assert action["action"] == "http"
-        assert action["method"] == "POST"
-        assert action["clear"] is True
-        assert "url" in action
-        assert "label" in action
+        assert action.startswith("http, ")
+        assert "method=POST" in action
+        assert "clear=true" in action
 
-    # Check labels and action params
-    assert "Erstellen" in actions[0]["label"]
-    assert "action=create" in actions[0]["url"]
-    assert "Alt1" in actions[1]["label"]
-    assert "action=alt1" in actions[1]["url"]
-    assert "Alt2" in actions[2]["label"]
-    assert "action=alt2" in actions[2]["url"]
-    assert "Ablehnen" in actions[3]["label"]
-    assert "action=reject" in actions[3]["url"]
+    # Check labels
+    assert "Erstellen" in actions[0]
+    assert "action=create" in actions[0]
+    assert "Alt1" in actions[1]
+    assert "action=alt1" in actions[1]
+    assert "Alt2" in actions[2]
+    assert "action=alt2" in actions[2]
+    assert "Ablehnen" in actions[3]
+    assert "action=reject" in actions[3]
 
 
 def test_sanitize_label() -> None:
@@ -73,7 +73,7 @@ def test_topic_extraction(mock_settings) -> None:
 
 @pytest.mark.asyncio
 async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
-    """Ensure send_auto_filed posts JSON to the ntfy base URL."""
+    """Ensure send_auto_filed posts to the ntfy topic URL with headers."""
     mock_response = MagicMock(spec=httpx.Response)
 
     with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
@@ -88,17 +88,18 @@ async def test_send_auto_filed(notifier: NtfyNotifier) -> None:
         call_args = mock_client.post.call_args
         assert call_args[0][0] == "http://ntfy.test/test_topic"
 
-        payload = call_args[1]["json"]
-        assert "topic" not in payload
-        assert payload["title"] == "✅ Automatisch abgelegt"
-        assert "test.pdf" in payload["message"]
-        assert "Finance/Taxes" in payload["message"]
-        assert payload["tags"] == ["white_check_mark", "file_folder"]
+        headers = call_args[1]["headers"]
+        assert headers["X-Title"] == "✅ Automatisch abgelegt"
+        assert headers["X-Tags"] == "white_check_mark,file_folder"
+
+        body = call_args[1]["content"].decode("utf-8")
+        assert "test.pdf" in body
+        assert "Finance/Taxes" in body
 
 
 @pytest.mark.asyncio
 async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentMetadata, tmp_path: Path) -> None:
-    """Ensure send_decision_request posts JSON with attach URL and actions."""
+    """Ensure send_decision_request posts with attach and actions headers."""
     preview = tmp_path / "test.jpg"
     preview.write_bytes(b"\xff\xd8\xff\xe0fake_jpeg_data")
 
@@ -115,23 +116,25 @@ async def test_send_decision_request(notifier: NtfyNotifier, metadata: DocumentM
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
 
-        payload = call_args[1]["json"]
-        assert "topic" not in payload
-        assert payload["title"] == "Neues Dokument einordnen"
-        assert "test.pdf" in payload["message"]
-        assert payload["attach"] == "http://localhost:8000/preview/test.jpg"
+        headers = call_args[1]["headers"]
+        assert headers["X-Title"] == "Neues Dokument einordnen"
+        assert headers["X-Tags"] == "page_facing_up"
+        assert headers["X-Filename"] == "test.jpg"
+        assert "X-Attach" not in headers
+        assert "📄 Neuer Ordner vorgeschlagen" in headers["X-Message"]
+        assert "X-Actions" in headers
 
-        # Verify actions are a JSON list
-        actions = payload["actions"]
-        assert len(actions) == 4
-        assert actions[0]["action"] == "http"
-        assert actions[0]["method"] == "POST"
-        assert actions[0]["clear"] is True
+        # Verify actions header contains all four actions
+        actions_parts = headers["X-Actions"].split("; ")
+        assert len(actions_parts) == 4
+
+        body = call_args[1]["content"]
+        assert body == b"\xff\xd8\xff\xe0fake_jpeg_data"
 
 
 @pytest.mark.asyncio
 async def test_send_error(notifier: NtfyNotifier) -> None:
-    """Ensure send_error posts JSON with high priority."""
+    """Ensure send_error posts with high priority header."""
     mock_response = MagicMock(spec=httpx.Response)
 
     with patch("src.notifier.httpx.AsyncClient") as mock_client_cls:
@@ -145,8 +148,11 @@ async def test_send_error(notifier: NtfyNotifier) -> None:
         mock_client.post.assert_called_once()
         call_args = mock_client.post.call_args
 
-        payload = call_args[1]["json"]
-        assert "topic" not in payload
-        assert payload["priority"] == 4
-        assert "test.pdf" in payload["message"]
-        assert "Something went wrong" in payload["message"]
+        headers = call_args[1]["headers"]
+        assert headers["X-Title"] == "❌ Fehler bei Verarbeitung"
+        assert headers["X-Priority"] == "4"
+        assert headers["X-Tags"] == "rotating_light"
+
+        body = call_args[1]["content"].decode("utf-8")
+        assert "test.pdf" in body
+        assert "Something went wrong" in body

@@ -1,7 +1,8 @@
 """ntfy push-notification helpers.
 
 The ``NtfyNotifier`` class wraps all outgoing notifications.  Each
-notification is sent as an HTTP JSON POST to the configured ntfy topic URL.
+notification is sent as an HTTP POST to the configured ntfy topic URL
+using the header-based publishing API (plain text body + HTTP headers).
 Decision requests reference a JPEG preview served by the local webhook
 and include ``http`` action buttons that call back into the FastAPI server.
 """
@@ -34,9 +35,7 @@ class NtfyNotifier:
         )
 
         # Optional ntfy authentication header.
-        self._base_headers: dict[str, str] = {
-            "Content-Type": "application/json",
-        }
+        self._base_headers: dict[str, str] = {}
         if settings.ntfy_token:
             self._base_headers["Authorization"] = f"Bearer {settings.ntfy_token}"
 
@@ -58,48 +57,30 @@ class NtfyNotifier:
         """Strip commas/semicolons that would break ntfy display."""
         return label.replace(",", " ").replace(";", " ")
 
-    def _build_actions(
+    def _build_actions_header(
         self, filename: str, metadata: DocumentMetadata
-    ) -> list[dict]:
-        """Build the actions list for a decision notification (JSON format).
+    ) -> str:
+        """Build the X-Actions header value for a decision notification.
 
-        Each action triggers an HTTP POST to the local webhook server.
-        ``clear=true`` dismisses the notification after the tap.
+        Each action is formatted as a semicolon-separated entry using
+        ntfy's header action syntax:
+        ``http, <label>, <url>, method=POST, clear=true``
         """
         suggested = self._sanitize_label(metadata.suggested_category)
         alt1 = self._sanitize_label(metadata.alternative_1)
         alt2 = self._sanitize_label(metadata.alternative_2)
 
-        return [
-            {
-                "action": "http",
-                "label": f"📂 Erstellen → {suggested}",
-                "url": self._action_url("create", filename),
-                "method": "POST",
-                "clear": True,
-            },
-            {
-                "action": "http",
-                "label": f"➡️ {alt1}",
-                "url": self._action_url("alt1", filename),
-                "method": "POST",
-                "clear": True,
-            },
-            {
-                "action": "http",
-                "label": f"➡️ {alt2}",
-                "url": self._action_url("alt2", filename),
-                "method": "POST",
-                "clear": True,
-            },
-            {
-                "action": "http",
-                "label": "❌ Ablehnen",
-                "url": self._action_url("reject", filename),
-                "method": "POST",
-                "clear": True,
-            },
+        actions = [
+            (f"📂 Erstellen → {suggested}", self._action_url("create", filename)),
+            (f"➡️ {alt1}", self._action_url("alt1", filename)),
+            (f"➡️ {alt2}", self._action_url("alt2", filename)),
+            ("❌ Ablehnen", self._action_url("reject", filename)),
         ]
+
+        parts = []
+        for label, url in actions:
+            parts.append(f"http, {label}, {url}, method=POST, clear=true")
+        return "; ".join(parts)
 
     # ------------------------------------------------------------------
     # Public notification methods
@@ -107,20 +88,21 @@ class NtfyNotifier:
 
     async def send_auto_filed(self, filename: str, category: str) -> None:
         """Confirm that a file was automatically filed into an existing category."""
-        payload = {
-            "title": "✅ Automatisch abgelegt",
-            "message": (
-                f"Datei {filename} erfolgreich nach "
-                f"{category} verschoben."
-            ),
-            "tags": ["white_check_mark", "file_folder"],
+        message = (
+            f"Datei {filename} erfolgreich nach "
+            f"{category} verschoben."
+        )
+        headers = {
+            **self._base_headers,
+            "X-Title": "✅ Automatisch abgelegt",
+            "X-Tags": "white_check_mark,file_folder",
         }
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     self._ntfy_url,
-                    headers=self._base_headers,
-                    json=payload,
+                    headers=headers,
+                    content=message.encode("utf-8"),
                 )
                 resp.raise_for_status()
         except Exception as exc:
@@ -133,50 +115,53 @@ class NtfyNotifier:
         preview_path: Path,
     ) -> None:
         """Send a preview image with action buttons for user decision."""
-        actions = self._build_actions(filename, metadata)
+        actions_header = self._build_actions_header(filename, metadata)
         message = (
             f"📄 Neuer Ordner vorgeschlagen\n\n"
             f"Datei: {filename}\n"
             f"Vorgeschlagener Ordner: {metadata.suggested_category}"
         )
 
-        # Build a URL to the preview image served by the webhook server.
-        preview_url = f"{self._callback_base_url}/preview/{preview_path.name}"
-
-        payload = {
-            "title": "Neues Dokument einordnen",
-            "message": message,
-            "tags": ["page_facing_up"],
-            "attach": preview_url,
-            "actions": actions,
-        }
-
         try:
+            image_bytes = preview_path.read_bytes() if preview_path.exists() else b""
+            if not image_bytes:
+                raise FileNotFoundError(f"Preview not found: {preview_path}")
+
+            headers = {
+                **self._base_headers,
+                "X-Title": "Neues Dokument einordnen",
+                "X-Tags": "page_facing_up",
+                "X-Message": message.replace("\n", "\\n"),
+                "X-Filename": preview_path.name,
+                "X-Actions": actions_header,
+            }
+
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     self._ntfy_url,
-                    headers=self._base_headers,
-                    json=payload,
+                    headers=headers,
+                    content=image_bytes,
                 )
                 resp.raise_for_status()
         except Exception as exc:
             logger.error("Error sending ntfy decision request: %s", exc)
             # Fallback: text-only notification without image.
             try:
-                fallback_payload = {
-                    "title": "Neues Dokument einordnen",
-                    "message": (
-                        message
-                        + f"\n\n⚠️ Preview konnte nicht gesendet werden: {exc}"
-                    ),
-                    "tags": ["page_facing_up"],
-                    "actions": actions,
+                fallback_msg = (
+                    message
+                    + f"\n\n⚠️ Preview konnte nicht gesendet werden: {exc}"
+                )
+                fallback_headers = {
+                    **self._base_headers,
+                    "X-Title": "Neues Dokument einordnen",
+                    "X-Tags": "page_facing_up",
+                    "X-Message": fallback_msg.replace("\n", "\\n"),
+                    "X-Actions": actions_header,
                 }
                 async with httpx.AsyncClient() as client:
                     resp = await client.post(
                         self._ntfy_url,
-                        headers=self._base_headers,
-                        json=fallback_payload,
+                        headers=fallback_headers,
                     )
                     resp.raise_for_status()
             except Exception as exc2:
@@ -184,22 +169,23 @@ class NtfyNotifier:
 
     async def send_error(self, filename: str, error_msg: str) -> None:
         """Notify the user about a processing error."""
-        payload = {
-            "title": "❌ Fehler bei Verarbeitung",
-            "message": (
-                f"Datei: {filename}\n"
-                f"Fehler: {error_msg}\n\n"
-                f"Die Datei wurde nach /app/error verschoben."
-            ),
-            "priority": 4,
-            "tags": ["rotating_light"],
+        message = (
+            f"Datei: {filename}\n"
+            f"Fehler: {error_msg}\n\n"
+            f"Die Datei wurde nach /app/error verschoben."
+        )
+        headers = {
+            **self._base_headers,
+            "X-Title": "❌ Fehler bei Verarbeitung",
+            "X-Priority": "4",
+            "X-Tags": "rotating_light",
         }
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     self._ntfy_url,
-                    headers=self._base_headers,
-                    json=payload,
+                    headers=headers,
+                    content=message.encode("utf-8"),
                 )
                 resp.raise_for_status()
         except Exception as exc:
