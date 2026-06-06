@@ -87,4 +87,5 @@ def load_settings() -> Settings:
         callback_base_url=os.getenv("CALLBACK_BASE_URL", ""),
         webhook_port=int(os.getenv("WEBHOOK_PORT", "8000")),
         user_blacklist=user_blacklist,
+        llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
     )
