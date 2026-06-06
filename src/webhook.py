@@ -12,6 +12,7 @@ import logging
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import Settings
 from src.file_ops import move_file
@@ -35,6 +36,14 @@ def create_webhook_app(
         title="SmartInboxAI Webhook",
         docs_url=None,
         redoc_url=None,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # ------------------------------------------------------------------
