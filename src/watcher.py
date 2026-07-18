@@ -54,7 +54,6 @@ async def watch_inbox(
         settings.inbox_dir,
         stop_event=stop_event,
         force_polling=force_polling,
-        rust_timeout=10000,
         step=10000,
         poll_delay_ms=10000,
     ):
