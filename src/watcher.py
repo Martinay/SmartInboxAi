@@ -51,7 +51,11 @@ async def watch_inbox(
         logger.info("File monitoring mode: native OS notifications")
 
     async for changes in awatch(
-        settings.inbox_dir, stop_event=stop_event, force_polling=force_polling
+        settings.inbox_dir,
+        stop_event=stop_event,
+        force_polling=force_polling,
+        step=10000,
+        poll_delay_ms=10000,
     ):
         for change_type, filepath in changes:
             filepath = Path(filepath)
