@@ -1,49 +1,49 @@
 # SmartInboxAI
 
-Automatisierte Dokumentenverwaltung (DMS) für NAS-Systeme. Überwacht einen Inbox-Ordner auf neue PDFs, führt OCR durch, extrahiert Metadaten via KI und sortiert Dokumente automatisch ein – mit ntfy-Push-Benachrichtigungen für manuelle Entscheidungen.
+Automated Document Management System (DMS) for NAS systems. Monitors an inbox folder for new PDFs, performs OCR, extracts metadata via AI, and automatically sorts documents – with ntfy push notifications for manual decisions.
 
 ## Features
 
-- **Asynchrone Dateiüberwachung** – Reagiert sofort auf neue PDFs im Inbox-Ordner
-- **OCR (Deutsch & Englisch)** – Erkennt Text in gescannten Dokumenten via OCRmyPDF
-- **KI-gestützte Analyse** – Extrahiert Datum, Titel und Kategorie mit GPT-4o-mini
-- **Dynamische Kategorien** – Liest Ordnerstruktur automatisch aus dem Archiv
-- **ntfy-Benachrichtigungen** – Push-Nachrichten mit Vorschaubild und Action Buttons via lokalen ntfy-Server
-- **FastAPI Webhook** – Empfängt Entscheidungen per HTTP-Callback, abgesichert mit Secret Token
+- **Asynchronous File Monitoring** – Reacts immediately to new PDFs in the inbox folder
+- **OCR (German & English)** – Recognizes text in scanned documents via OCRmyPDF
+- **AI-Powered Analysis** – Extracts date, title, and category using GPT-4o-mini
+- **Dynamic Categories** – Automatically reads folder structure from the archive
+- **ntfy Notifications** – Push messages with preview images and action buttons via a local ntfy server
+- **FastAPI Webhook** – Receives decisions via HTTP callback, secured with a Secret Token
 
-## Schnellstart
+## Quick Start
 
-### 1. Umgebungsvariablen einrichten
+### 1. Set Up Environment Variables
 
 ```bash
 cp .env.example .env
-# .env bearbeiten und eigene Werte eintragen
+# Edit .env and enter your own values
 ```
 
-### 2. Docker-Image bauen
+### 2. Build Docker Image
 
 ```bash
 docker build -t smartinboxai .
 ```
 
-### 3. Container starten
+### 3. Start Container
 
 ```bash
 docker run -d \
   --name smartinboxai \
   --env-file .env \
   -p 8000:8000 \
-  -v /pfad/zu/inbox:/app/inbox \
-  -v /pfad/zu/archiv:/app/archive \
-  -v /pfad/zu/pending:/app/pending \
-  -v /pfad/zu/error:/app/error \
+  -v /path/to/inbox:/app/inbox \
+  -v /path/to/archive:/app/archive \
+  -v /path/to/pending:/app/pending \
+  -v /path/to/error:/app/error \
   --restart unless-stopped \
   smartinboxai
 ```
 
 ### 4. Docker Compose (Alternative)
 
-Erstelle eine `docker-compose.yml`:
+Create a `docker-compose.yml`:
 
 ```yaml
 services:
@@ -54,10 +54,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /pfad/zu/inbox:/app/inbox
-      - /pfad/zu/archiv:/app/archive
-      - /pfad/zu/pending:/app/pending
-      - /pfad/zu/error:/app/error
+      - /path/to/inbox:/app/inbox
+      - /path/to/archive:/app/archive
+      - /path/to/pending:/app/pending
+      - /path/to/error:/app/error
     restart: unless-stopped
 ```
 
@@ -65,60 +65,56 @@ services:
 docker compose up -d
 ```
 
-## Verzeichnisstruktur
+## Directory Structure
 
-| Verzeichnis | Beschreibung |
+| Directory | Description |
 |---|---|
-| `/app/inbox` | Überwachter Eingangsordner – hier landen neue Scans |
-| `/app/archive` | Zielarchiv mit Kategorie-Unterordnern |
-| `/app/pending` | Zwischenspeicher bei ausstehenden Nutzer-Entscheidungen |
-| `/app/error` | Fehlerhafte oder abgelehnte Dokumente |
+| `/app/inbox` | Monitored input folder – new scans land here |
+| `/app/archive` | Target archive with category subfolders |
+| `/app/pending` | Temporary storage for pending user decisions |
+| `/app/error` | Failed or rejected documents |
 
-## Umgebungsvariablen
+## Environment Variables
 
-| Variable | Beschreibung |
+| Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API-Schlüssel für GPT-4o-mini |
-| `NTFY_URL` | Vollständige URL zum ntfy-Topic (z.B. `http://ntfy.local/mein_topic`) |
-| `NTFY_TOKEN` | Optionaler ntfy Access-Token für geschützte Topics |
-| `SECRET_TOKEN` | Geheimer Token zur Absicherung der Callback-URLs |
-| `CALLBACK_BASE_URL` | Basis-URL für Action-Button-Callbacks (z.B. `http://192.168.1.100:8000`) |
-| `WEBHOOK_PORT` | Port für den FastAPI-Server (Standard: `8000`) |
-| `IGNORE_FOLDERS` | Kommaseparierte Liste zu ignorierender Ordnernamen |
+| `OPENAI_API_KEY` | OpenAI API key for GPT-4o-mini |
+| `NTFY_URL` | Full URL to the ntfy topic (e.g., `http://ntfy.local/my_topic`) |
+| `NTFY_TOKEN` | Optional ntfy access token for protected topics |
+| `SECRET_TOKEN` | Secret token to secure callback URLs |
+| `CALLBACK_BASE_URL` | Base URL for action button callbacks (e.g., `http://192.168.1.100:8000`) |
+| `WEBHOOK_PORT` | Port for the FastAPI server (default: `8000`) |
+| `IGNORE_FOLDERS` | Comma-separated list of folder names to ignore |
 
 ## Workflow
 
 ```
-Neue PDF in /inbox
+New PDF in /inbox
        │
        ▼
-  Text vorhanden? ──Nein──▶ OCR (eng+deu)
+  Text exists? ──No──▶ OCR (eng+ger)
        │                         │
        ▼                         ▼
-  Textextraktion ◀───────────────┘
+  Text Extraction ◀──────────────┘
        │
        ▼
-  Vorschaubild erstellen
+  Generate Preview Image
        │
        ▼
-  Kategorien scannen (/archive)
+  Scan Categories (/archive)
        │
        ▼
-  LLM-Analyse (gpt-4o-mini)
+  LLM Analysis (gpt-4o-mini)
        │
        ▼
-  Datei umbenennen (YYYY-MM-DD_Titel.pdf)
+  Rename File (YYYY-MM-DD_Title.pdf)
        │
-        ├── Kategorie existiert ──▶ Auto-Verschieben + ntfy ✅
+        ├── Category exists ──▶ Auto-Move + ntfy ✅
         │
-        └── Neue Kategorie ──▶ /pending + ntfy-Entscheidung
+        └── New Category ──▶ /pending + ntfy-decision
                                     │
-                                    ├── 📂 Erstellen & Verschieben
+                                    ├── 📂 Create & Move
                                     ├── ➡️ Alternative 1
                                     ├── ➡️ Alternative 2
-                                    └── ❌ Ablehnen (→ /error)
+                                    └── ❌ Reject (→ /error)
 ```
-
-## Lizenz
-
-Privates Projekt.
