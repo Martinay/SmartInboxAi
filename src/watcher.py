@@ -50,13 +50,15 @@ async def watch_inbox(
     else:
         logger.info("File monitoring mode: native OS notifications")
 
-    async for changes in awatch(
-        settings.inbox_dir,
-        stop_event=stop_event,
-        force_polling=force_polling,
-        step=10000,
-        poll_delay_ms=10000,
-    ):
+    watch_kwargs = {
+        "stop_event": stop_event,
+        "force_polling": force_polling,
+    }
+    if force_polling:
+        watch_kwargs["step"] = 10000
+        watch_kwargs["poll_delay_ms"] = 10000
+
+    async for changes in awatch(settings.inbox_dir, **watch_kwargs):
         for change_type, filepath in changes:
             filepath = Path(filepath)
 

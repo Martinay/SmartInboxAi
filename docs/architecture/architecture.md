@@ -75,6 +75,7 @@ graph LR
 | `CALLBACK_BASE_URL` | Yes | Base URL the phone uses to reach FastAPI (e.g. `http://192.168.1.100:8000`) |
 | `WEBHOOK_PORT` | No | FastAPI server port (default: `8000`) |
 | `IGNORE_FOLDERS` | No | Comma-separated folder names to skip during category scan |
+| `WATCHFILES_FORCE_POLLING` | No | Set to `true` to enable periodic disk polling (required for Docker bind-mounts on Windows/macOS hosts; default: disabled) |
 
 ## Blacklist
 Folders matching any of these names are excluded from category scanning and never offered as targets:

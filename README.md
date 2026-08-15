@@ -85,6 +85,7 @@ docker compose up -d
 | `CALLBACK_BASE_URL` | Base URL for action button callbacks (e.g., `http://192.168.1.100:8000`) |
 | `WEBHOOK_PORT` | Port for the FastAPI server (default: `8000`) |
 | `IGNORE_FOLDERS` | Comma-separated list of folder names to ignore |
+| `WATCHFILES_FORCE_POLLING` | Optional. Set to `true` to force polling mode. **Default: disabled** (uses native OS events / inotify to allow disks to sleep). Required on Windows and macOS host systems when running in Docker, as bind-mounts do not forward filesystem events across the OS boundary. |
 
 ## Workflow
 
