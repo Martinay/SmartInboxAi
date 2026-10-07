@@ -68,7 +68,7 @@ graph LR
 ## Environment Variables
 | Variable | Required | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes | API key for litellm → gpt-4o-mini |
+| `LLM_API_KEY` | Yes | API key for litellm (supports OpenAI, Mistral, etc.) |
 | `NTFY_URL` | Yes | Full URL to the ntfy topic (e.g. `http://ntfy.local/my_topic`) |
 | `NTFY_TOKEN` | No | Bearer token for authenticated ntfy topics |
 | `SECRET_TOKEN` | Yes | Shared secret embedded in callback URLs for authorisation |

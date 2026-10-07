@@ -22,7 +22,7 @@ class Settings:
     """Immutable application configuration."""
 
     # Secrets / tokens
-    openai_api_key: str = ""
+    llm_api_key: str = ""
     ntfy_url: str = ""
     ntfy_token: str = ""
     secret_token: str = ""
@@ -56,6 +56,11 @@ class Settings:
         """Combined system + user blacklist."""
         return self.system_blacklist | self.user_blacklist
 
+    @property
+    def openai_api_key(self) -> str:
+        """Backward compatibility alias for llm_api_key."""
+        return self.llm_api_key
+
 
 def _read_secret(env_var: str) -> str:
     """Read a secret from an env var or its _FILE counterpart."""
@@ -70,6 +75,7 @@ def _read_secret(env_var: str) -> str:
             pass
     return ""
 
+
 def load_settings() -> Settings:
     """Read ``.env`` and construct a ``Settings`` instance."""
     load_dotenv()
@@ -79,8 +85,13 @@ def load_settings() -> Settings:
         f.strip() for f in ignore_folders_env.split(",") if f.strip()
     )
 
+    llm_api_key = (
+        _read_secret("LLM_API_KEY")
+        or _read_secret("OPENAI_API_KEY")
+    )
+
     return Settings(
-        openai_api_key=_read_secret("OPENAI_API_KEY"),
+        llm_api_key=llm_api_key,
         ntfy_url=os.getenv("NTFY_URL", ""),
         ntfy_token=_read_secret("NTFY_TOKEN"),
         secret_token=_read_secret("SECRET_TOKEN"),

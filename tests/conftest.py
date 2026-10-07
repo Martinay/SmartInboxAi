@@ -20,7 +20,7 @@ def mock_settings(tmp_path: Path) -> Settings:
         d.mkdir(parents=True, exist_ok=True)
 
     return Settings(
-        openai_api_key="test_key",
+        llm_api_key="test_key",
         ntfy_url="http://ntfy.test/test_topic",
         ntfy_token="",
         secret_token="test_secret",
