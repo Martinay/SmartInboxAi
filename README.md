@@ -78,14 +78,18 @@ docker compose up -d
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API key for GPT-4o-mini |
+| `LLM_API_KEY` | API key for LiteLLM (OpenAI, Mistral, etc.). Can also be provided via `LLM_API_KEY_FILE` when using Docker secrets. |
+| `LLM_MODEL` | Optional. LLM model identifier (default: `gpt-4o-mini`). For Mistral API, use `mistral/mistral-small-latest` or `mistral/mistral-large-latest`. |
 | `NTFY_URL` | Full URL to the ntfy topic (e.g., `http://ntfy.local/my_topic`) |
-| `NTFY_TOKEN` | Optional ntfy access token for protected topics |
-| `SECRET_TOKEN` | Secret token to secure callback URLs |
+| `NTFY_TOKEN` | Optional ntfy access token for protected topics. Can also be provided via `NTFY_TOKEN_FILE`. |
+| `SECRET_TOKEN` | Secret token to secure callback URLs. Can also be provided via `SECRET_TOKEN_FILE`. |
 | `CALLBACK_BASE_URL` | Base URL for action button callbacks (e.g., `http://192.168.1.100:8000`) |
 | `WEBHOOK_PORT` | Port for the FastAPI server (default: `8000`) |
 | `IGNORE_FOLDERS` | Comma-separated list of folder names to ignore |
 | `WATCHFILES_FORCE_POLLING` | Optional. Set to `true` to force polling mode. **Default: disabled** (uses native OS events / inotify to allow disks to sleep). Required on Windows and macOS host systems when running in Docker, as bind-mounts do not forward filesystem events across the OS boundary. |
+
+> [!NOTE]
+> All secret variables (`LLM_API_KEY`, `NTFY_TOKEN`, `SECRET_TOKEN`) support their `_FILE` counterparts (e.g., `LLM_API_KEY_FILE`, `SECRET_TOKEN_FILE`) for Docker secrets compatibility. For backward compatibility, `OPENAI_API_KEY` and `OPENAI_API_KEY_FILE` are also accepted as fallbacks.
 
 ## Workflow
 

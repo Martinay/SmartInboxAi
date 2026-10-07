@@ -39,8 +39,8 @@ async def main() -> None:
     if not settings.callback_base_url:
         logger.error("CALLBACK_BASE_URL is not set!")
         sys.exit(1)
-    if not settings.openai_api_key:
-        logger.warning("OPENAI_API_KEY is not set – LLM calls will fail.")
+    if not settings.llm_api_key:
+        logger.warning("LLM_API_KEY is not set – LLM calls will fail.")
 
     logger.info("SmartInboxAI starting…")
     logger.info("Inbox:     %s", settings.inbox_dir)
