@@ -4,7 +4,7 @@ Automated Document Management System (DMS) for NAS systems. Monitors an inbox fo
 
 ## Features
 
-- **Asynchronous File Monitoring** – Reacts immediately to new PDFs in the inbox folder
+- **Asynchronous File Monitoring** – Processes existing PDFs at startup and reacts to new PDFs in the inbox folder
 - **OCR (German & English)** – Recognizes text in scanned documents via OCRmyPDF
 - **AI-Powered Analysis** – Extracts date, title, and category using GPT-4o-mini
 - **Dynamic Categories** – Automatically reads folder structure from the archive
@@ -92,6 +92,13 @@ docker compose up -d
 > All secret variables (`LLM_API_KEY`, `NTFY_TOKEN`, `SECRET_TOKEN`) support their `_FILE` counterparts (e.g., `LLM_API_KEY_FILE`, `SECRET_TOKEN_FILE`) for Docker secrets compatibility. For backward compatibility, `OPENAI_API_KEY` and `OPENAI_API_KEY_FILE` are also accepted as fallbacks.
 
 ## Workflow
+
+At startup, monitoring begins before the inbox is scanned recursively for existing
+PDFs (including `.PDF` files). Existing and newly arriving PDFs use the same
+processing pipeline and file-stability check. Non-PDF files and paths ignored by
+the watcher are skipped. Startup discoveries and overlapping watcher events are
+deduplicated while processing; delayed events for unchanged files are also ignored.
+Each PDF is processed in an independent asynchronous task.
 
 ```
 New PDF in /inbox
